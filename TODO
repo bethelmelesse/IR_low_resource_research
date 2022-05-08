@@ -1,0 +1,19 @@
+part 1
+download wikidump                                   ............... done
+wikiextractor in json mode                          ............... done
+read file line by line
+parse input json ---- convert input from json to python dictionary ................ done
+join title and text with a space in the middle      ............... done
+make a list of all title text things                ................ done
+do it for all files ..................... done
+
+
+Part 2
+each doc in make list normalize                .................... done
+then segment                                   .................... done
+take the words add to a dictionary
+- update the count each time you get a new word
+counter to the dictionary of words
+
+make tf-idf
+-
