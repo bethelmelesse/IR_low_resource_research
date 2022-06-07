@@ -205,6 +205,22 @@ def to_query_to_all_document_score(query_tf, doc_tf):
     return score
 
 
+def sort_dic_by_value_tolist(dic_to_be_sorted):
+    return list(sorted(dic_to_be_sorted.items(), key=lambda item: item[1], reverse=True))
+
+
+def to_all_query_to_all_document_score(queries_tf, doc_tf, k):          # rename
+    total_score = {}
+
+    for key, query_tf in queries_tf.items():
+        dic_to_be_sorted = to_query_to_all_document_score(query_tf, doc_tf)
+        sorted_doc_scores = sort_dic_by_value_tolist(dic_to_be_sorted)
+        top_k_doc = sorted_doc_scores[:k]
+        total_score[key] = top_k_doc
+
+    return total_score
+
+
 def pre_process(list_doc_text):
     print("\n normalize the texts")
     the_normalized = for_normalize(list_doc_text)
@@ -218,7 +234,7 @@ def pre_process(list_doc_text):
     print("\nremove duplicates from the segmented list")
     remove_duplicates = to_remove_duplicates(sort_segmented_list)
 
-    return sort_segmented_list, remove_duplicates
+    return sort_segmented_list, remove_duplicates, the_normalized
 
 
 """MAIN METHOD"""
@@ -229,7 +245,7 @@ def main():
     list_doc_text = read_wiki_files()  # List of text in each doc
     print(list_doc_text[:2])
 
-    sort_segmented_list, remove_duplicates = pre_process(list_doc_text)
+    sort_segmented_list, remove_duplicates, the_normalized = pre_process(list_doc_text)
 
     # This is not used currently, but we will use it to remove punctuations and stopwords
     # print("\ndocument to dictionary")
@@ -276,11 +292,13 @@ def main():
     print("\n************************************ for queries ****************************************\n")
 
     print("the query")
-    my_query = ["ሒሳብ እጅግ በጣም በጣም ጠቃሚና ውበት ያለው የጥናትና የምርምር መስክ ወይም ዘርፍ ነው ።"]
+    my_query = ["ሒሳብ እጅግ በጣም በጣም ጠቃሚና ውበት ያለው የጥናትና የምርምር መስክ ወይም ዘርፍ ነው ።", "ሒሳብ እጅግ በጣም በጣም"]
+    my_answer = ["እጅግ በጣም", "ሒሳ"]
+    my_normalized_answer = for_normalize(my_answer)
     the_query_file = write_query_in_json(my_query)
     the_query = read_query_from_json(the_query_file)
 
-    sort_segmented_list_query, remove_duplicates_query = pre_process(the_query)
+    sort_segmented_list_query, remove_duplicates_query, _ = pre_process(the_query)
 
     print("\ntf - dictionary of a dictionary{term_id: number of times term occurs}")
     make_tf_query = to_make_tf(sort_segmented_list_query)
@@ -301,23 +319,16 @@ def main():
 
     print(" ")
 
-    def sort_dic_by_value_tolist(dic_to_be_sorted):
-        return list(sorted(dic_to_be_sorted.items(), key=lambda item: item[1], reverse=True))
+    top_scores = to_all_query_to_all_document_score(tf_idf_query, make_tf, 2)
 
-    sorted_doc_scores = sort_dic_by_value_tolist(all_doc_scores)
+    # Evaluation -
+    # For a given query
+        # Score = 1 if atleast one of top-k documents contains answer
+        # Else, score = 0
+    # Find the scores for all queries
 
-    top_100_doc = sorted_doc_scores[:100]
+    print(top_scores)
 
-    print(top_100_doc)
-
-    # Given 1 query_tf, and 1 document_tf, and calculates the score.
-    # for each word in query, check if it is in the document, and if it is, then increase score by document's tf * query's tf for that word
-    # return the score integer
-
-    # print(" ")
-    #
-    # score = score_tf_idf(tf_idf)
-    # print(score)                      # output = {0: 68.0}
 
 
 main()
