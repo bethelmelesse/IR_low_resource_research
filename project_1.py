@@ -1,8 +1,10 @@
 import json
 import math
 import os
+import numpy as np
 from amseg.amharicNormalizer import AmharicNormalizer as normalizer
 from amseg.amharicSegmenter import AmharicSegmenter
+from tqdm import tqdm
 
 path = '/home/bethel/ir_proj/amfiles_json/AA/'  # path to the Amharic wiki dump files in json format
 dir_list = os.listdir(path)
@@ -36,11 +38,12 @@ def to_normalize(passage):  # function to normalize words
 
 
 def for_normalize(list_doc_text):  # function to do it over all docs
-    normalized = []
-    for document in list_doc_text:
-        norm_doc = to_normalize(document)
-        normalized.append(norm_doc)
-    return normalized
+    # normalized = []
+    # for document in list_doc_text:
+    #     norm_doc = to_normalize(document)
+    #     normalized.append(norm_doc)
+    # return normalized
+    return list_doc_text
 
 
 def to_segment(passage):  # function to segment the words
@@ -141,17 +144,16 @@ def to_make_idf(n, df):
     return df
 
 
-def write_query_in_json(query):
-    query_file = 'query_json/query1.json'
-    with open(query_file, 'w') as f:
-        json.dump(query, f)
-    return query_file
+def write_text_in_json(text, file_name):
+    with open(file_name, 'w') as f:
+        json.dump(text, f)
+    return file_name
 
 
-def read_query_from_json(query_file):
-    with open(query_file) as f:
-        query_to_read = json.load(f)
-    return query_to_read
+def read_text_from_json(text_file):
+    with open(text_file) as f:
+        text_to_read = json.load(f)
+    return text_to_read
 
 
 def for_calculate_tf_idf(tf_queries, idf_document):
@@ -212,7 +214,7 @@ def sort_dic_by_value_tolist(dic_to_be_sorted):
 def to_all_query_to_all_document_score(queries_tf, doc_tf, k):          # rename
     total_score = {}
 
-    for key, query_tf in queries_tf.items():
+    for key, query_tf in tqdm(queries_tf.items()):
         dic_to_be_sorted = to_query_to_all_document_score(query_tf, doc_tf)
         sorted_doc_scores = sort_dic_by_value_tolist(dic_to_be_sorted)
         top_k_doc = sorted_doc_scores[:k]
@@ -231,102 +233,60 @@ def pre_process(list_doc_text):
     return sort_segmented_list, remove_duplicates, the_normalized
 
 
-"""MAIN METHOD"""
+def to_evaluate(normalized_answer, normalized_document, top_score, k):
+    top_documents = [i[0] for i in top_score]
+
+    score = 0
+    for i in range(k):
+        if normalized_answer in normalized_document[top_documents[i]]:
+            score = 1
+            break
+
+    return score
 
 
+def for_evaluation(normalized_answers, normalized_document, top_scores, k):
+    return [to_evaluate(normalized_answers[i], normalized_document, top_scores[i], k) for i in range(len(normalized_answers))]
+
+
+# """MAIN METHOD"""
 def main():
-    print("\n read wiki files")
-    list_doc_text = read_wiki_files()  # List of text in each doc
-    # print(list_doc_text[:2])
 
-    sort_segmented_list, remove_duplicates, the_normalized = pre_process(list_doc_text) # we apply pre-processing techniques to the list of document texts
+    list_doc_text = read_wiki_files()                              # to read wiki files and return List of text in each doc
 
-    # This is not used currently, but we will use it to remove punctuations and stopwords
-    # print("\ndocument to dictionary")
-    # to_dictionary = to_dic(the_segmented)
-    # print(to_dictionary)
-    # print(len(to_dictionary))
-    # print(" ")
+    sort_segmented_list, remove_duplicates, the_normalized_document = pre_process(list_doc_text) # we apply pre-processing techniques to the list of document texts
 
-    # print("word to dictionary")
-    # word_dic = to_cf(the_segmented)
-    # print(word_dic)
-    # print(len(word_dic))
-    #
-    # print(" ")
-    #
-    # print("remove punctuation from the segment")
-    # # removed_punc = to_remove_punc(word_dic)
-    # # print(removed_punc)
-    #
-    #
-    # print(" ")
-    #
-    # print("sort the dictionary")
-    # # sorted_dict = sorted(removed_punc.items(), key=lambda item: item[1], reverse = True)
-    # # print(sorted_dict[:100])
-    #
+    print("\n************************************ for documents ****************************************\n")
 
-    print("\ndf - dictionary of {term_id: how many documents a term occured}")
-    make_df = to_cf(remove_duplicates)
-    print(make_df)
+    df_document = to_cf(remove_duplicates)                         # to make df for the doc - dictionary of {term_id : how many documents a term has occured in}
 
-    print("\ntf - dictionary of a dictionary{term_id: number of times term occurs}")
-    make_tf = to_make_tf(sort_segmented_list)
-    # print(make_tf)
+    tf_document = to_make_tf(sort_segmented_list)                  # to make tf for the doc - dictionary of a dictionary{term_id: number of times term occurs}
 
-    print("\nidf - apply idf to the docs")
-    N = len(sort_segmented_list)  # total number of docs in the collection
-    # print(N)
-    # dic_eg = {'a': 1, 'b': 2, 'c': 10, 'd': 8}
-    # a = 10
-    idf = to_make_idf(N, make_df)
-    print(idf)
+    number_of_doc = len(sort_segmented_list)                       # total number of docs in the collection
+    idf_document = to_make_idf(number_of_doc, df_document)         # to make idf - apply idf to the docs
 
     print("\n************************************ for queries ****************************************\n")
+    the_query = read_text_from_json('query_json/query1.json')                                        # we read the query from the json file
 
-    print("the query")
-    my_query = ["ሒሳብ እጅግ በጣም በጣም ጠቃሚና ውበት ያለው የጥናትና የምርምር መስክ ወይም ዘርፍ ነው ።", "ሒሳብ እጅግ በጣም በጣም"]
-    my_answer = ["እጅግ በጣም", "ሒሳ"]
-    my_normalized_answer = for_normalize(my_answer)
-    the_query_file = write_query_in_json(my_query)
-    the_query = read_query_from_json(the_query_file)
+    sort_segmented_list_query, remove_duplicates_query, _ = pre_process(the_query)         # we apply pre-processing techniques to the query to get the sorted segmented query list and the list after removing the duplicates
 
-    sort_segmented_list_query, remove_duplicates_query, _ = pre_process(the_query)
+    tf_query = to_make_tf(sort_segmented_list_query)              # to make tf for the query - dictionary (query_id) of a dictionary{term_id: number of times term has occured in a query}
 
-    print("\ntf - dictionary of a dictionary{term_id: number of times term occurs}")
-    make_tf_query = to_make_tf(sort_segmented_list_query)
-    print(make_tf_query)
+    print("\n************************************ tf-idf & score ****************************************\n")
 
-    print(" ")
+    tf_idf_query = for_calculate_tf_idf(tf_query, idf_document)                       # to calculate tf-idf
 
-    print("\n************************************ tf-idf (doc)****************************************")
-
-    print(" ")
-    tf_idf_query = for_calculate_tf_idf(make_tf_query, idf)
-    print(tf_idf_query)
-
-    # print(to_query_to_document_score(tf_idf_query[0], make_tf[0]))
-
-    all_doc_scores = to_query_to_all_document_score(tf_idf_query[0], make_tf)
-    print(all_doc_scores)
-
-    print(" ")
-
-    top_scores = to_all_query_to_all_document_score(tf_idf_query, make_tf, 2)
-
-    print("\n************************************ evaluation ****************************************")
-    # Evaluation -
-
-    # For a given query
-        # Score = 1 if atleast one of top-k documents contains answer
-        # Else, score = 0
-    # Find the scores for all queries
-
-    # def evaluation(query):
-
+    top_scores = to_all_query_to_all_document_score(tf_idf_query, tf_document, 100)       # to calculate the score
     print(top_scores)
 
+    print("\n************************************ evaluation ****************************************")
+    the_answer = read_text_from_json('answer_json/answer1.json')
+    the_normalized_answer = for_normalize(the_answer)
+    print(the_normalized_answer)
 
+    for k in [1, 5, 20, 100]:
+        evaluation_list = for_evaluation(the_normalized_answer, the_normalized_document, top_scores, k)
+        score = np.mean(evaluation_list) * 100
+        print(f"Recall@{k} Score is - {score}")
 
 main()
