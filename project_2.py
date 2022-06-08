@@ -276,16 +276,14 @@ def main():
     tf_idf_query = for_calculate_tf_idf(tf_query, idf_document)                       # to calculate tf-idf
 
     top_scores = to_all_query_to_all_document_score(tf_idf_query, tf_document, 100)       # to calculate the score
-    print(top_scores)
 
     print("\n************************************ evaluation ****************************************")
     the_answer = read_text_from_json('answer_json/answer1.json')
     the_normalized_answer = for_normalize(the_answer)
-    print(the_normalized_answer)
 
     for k in [1, 5, 20, 100]:
         evaluation_list = for_evaluation(the_normalized_answer, the_normalized_document, top_scores, k)
         score = np.mean(evaluation_list) * 100
-        print(f"Recall@{k} Score is - {score}")
+        print(f"Recall@{k} {score}")
 
 main()

@@ -285,6 +285,6 @@ def main():
     for k in [1, 5, 20, 100]:
         evaluation_list = for_evaluation(the_normalized_answer, the_normalized_document, top_scores, k)
         score = np.mean(evaluation_list) * 100
-        print(f"Recall@{k} Score is - {score}")
+        print(f"Recall@{k} {score}")
 
 main()

@@ -38,18 +38,20 @@ def to_normalize(passage):  # function to normalize words
 
 
 def for_normalize(list_doc_text):  # function to do it over all docs
-    # normalized = []
-    # for document in list_doc_text:
-    #     norm_doc = to_normalize(document)
-    #     normalized.append(norm_doc)
-    # return normalized
-    return list_doc_text
+    normalized = []
+    for document in list_doc_text:
+        norm_doc = to_normalize(document)
+        while len(norm_doc) > 0:
+            length = min(288*4, len(norm_doc))
+            normalized.append(norm_doc[:length])
+            norm_doc = norm_doc[length:]
+    return normalized
 
 
 def to_segment(passage):  # function to segment the words
     """ To segment """
-    sent_punct = []
-    word_punct = []
+    sent_punct = ["።","፥","፨","::","፡፡","?","!", "፠", ]
+    word_punct = ["።","፥","፤","፨","?","!",":","፡","፦","፣", "(", ")", "%", ","]
     segmenter = AmharicSegmenter(sent_punct, word_punct)
     words = segmenter.amharic_tokenizer(passage)
     return words
@@ -124,7 +126,7 @@ def count(list_to_count):
         while i < len(list_to_count) and list_to_count[i] == word:
             cur_count += 1
             i += 1
-        single_doc[word] = cur_count
+        single_doc[word] = 1 + math.log(cur_count, 10)
     return single_doc
 
 
@@ -268,7 +270,7 @@ def main():
     print("\n************************************ for queries ****************************************\n")
     the_query = read_text_from_json('query_json/query1.json')                                        # we read the query from the json file
 
-    sort_segmented_list_query, remove_duplicates_query, _ = pre_process(the_query)         # we apply pre-processing techniques to the query to get the sorted segmented query list and the list after removing the duplicates
+    sort_segmented_list_query, remove_duplicates_query, _ = pre_process(the_query[:100])         # we apply pre-processing techniques to the query to get the sorted segmented query list and the list after removing the duplicates
 
     tf_query = to_make_tf(sort_segmented_list_query)              # to make tf for the query - dictionary (query_id) of a dictionary{term_id: number of times term has occured in a query}
 
@@ -278,9 +280,10 @@ def main():
 
     top_scores = to_all_query_to_all_document_score(tf_idf_query, tf_document, 100)       # to calculate the score
 
+
     print("\n************************************ evaluation ****************************************")
     the_answer = read_text_from_json('answer_json/answer1.json')
-    the_normalized_answer = for_normalize(the_answer)
+    the_normalized_answer = for_normalize(the_answer[:100])
 
     for k in [1, 5, 20, 100]:
         evaluation_list = for_evaluation(the_normalized_answer, the_normalized_document, top_scores, k)

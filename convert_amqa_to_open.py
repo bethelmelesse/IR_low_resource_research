@@ -26,12 +26,14 @@ def main():
         for paragraph in value:
             qas_list = paragraph['qas']
             for qas in qas_list:
-                questions.append(qas['question'])
                 answer = qas['answers']
                 if len(answer) > 1:
                     print('AAAAAAAAAAAAAAAAAAAAAAa')
                     exit()
                 answer = answer[0]
+                if len(answer['text']) == 0:
+                    continue
+                questions.append(qas['question'])
                 answers.append(answer['text'])
 
     print('Converted Dataset, Writing to file')

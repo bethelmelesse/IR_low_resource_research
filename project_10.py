@@ -5,6 +5,7 @@ import numpy as np
 from amseg.amharicNormalizer import AmharicNormalizer as normalizer
 from amseg.amharicSegmenter import AmharicSegmenter
 from tqdm import tqdm
+import fasttext
 
 path = '/home/bethel/ir_proj/amfiles_json/AA/'  # path to the Amharic wiki dump files in json format
 dir_list = os.listdir(path)
@@ -38,18 +39,20 @@ def to_normalize(passage):  # function to normalize words
 
 
 def for_normalize(list_doc_text):  # function to do it over all docs
-    # normalized = []
-    # for document in list_doc_text:
-    #     norm_doc = to_normalize(document)
-    #     normalized.append(norm_doc)
-    # return normalized
-    return list_doc_text
+    normalized = []
+    for document in list_doc_text:
+        norm_doc = to_normalize(document)
+        while len(norm_doc) > 0:
+            length = min(288*4, len(norm_doc))
+            normalized.append(norm_doc[:length])
+            norm_doc = norm_doc[length:]
+    return normalized
 
 
 def to_segment(passage):  # function to segment the words
     """ To segment """
-    sent_punct = []
-    word_punct = []
+    sent_punct = ["።","፥","፨","::","፡፡","?","!", "፠", ]
+    word_punct = ["።","፥","፤","፨","?","!",":","፡","፦","፣", "(", ")", "%", ","]
     segmenter = AmharicSegmenter(sent_punct, word_punct)
     words = segmenter.amharic_tokenizer(passage)
     return words
@@ -124,7 +127,7 @@ def count(list_to_count):
         while i < len(list_to_count) and list_to_count[i] == word:
             cur_count += 1
             i += 1
-        single_doc[word] = cur_count
+        single_doc[word] = 1 + math.log(cur_count, 10)
     return single_doc
 
 
@@ -189,20 +192,34 @@ def score_tf_idf(tf_idf):
     return score
 
 
-def to_query_to_document_score(query_tf, doc_tf):
+def to_query_to_document_score(query_tf, doc_tf, word_to_id, word_similarity_matrix):
     single_score = 0
+    doc_words = list(doc_tf.keys())
+    query_words = list(query_tf.keys())
+    if len(doc_words) == 0:
+        return -100000
 
-    for term, frequency in query_tf.items():
-        if term in doc_tf:
-            single_score += doc_tf[term] * query_tf[term]
+    doc_ids = [word_to_id[word] for word in doc_words]
+    doc_similarity = word_similarity_matrix[doc_ids]
+    doc_most_similar = np.argmax(doc_similarity, axis=0)
+
+    for i in range(len(query_tf)):
+        term = query_words[i]
+        most_similar_word = doc_words[doc_most_similar[i]]
+        # if term in doc_tf:
+        # single_score += doc_tf[most_similar_word] * query_tf[term]
+        single_score += doc_most_similar[i]
     return single_score
 
 
-def to_query_to_all_document_score(query_tf, doc_tf):
+def to_query_to_all_document_score(query_tf, doc_tf, word_vectors_document, word_to_id):
     score = {}
 
+    query_vectors = np.array([ft.get_word_vector(word) for word in query_tf])
+    word_similarity_matrix=np.matmul(word_vectors_document, query_vectors.T)
+
     for i in range(len(doc_tf)):
-        score[i] = to_query_to_document_score(query_tf, doc_tf[i])
+        score[i] = to_query_to_document_score(query_tf, doc_tf[i], word_to_id, word_similarity_matrix)
 
     return score
 
@@ -211,11 +228,11 @@ def sort_dic_by_value_tolist(dic_to_be_sorted):
     return list(sorted(dic_to_be_sorted.items(), key=lambda item: item[1], reverse=True))
 
 
-def to_all_query_to_all_document_score(queries_tf, doc_tf, k):          # rename
+def to_all_query_to_all_document_score(queries_tf, doc_tf, k, word_vectors_document, word_to_id):          # rename
     total_score = {}
 
     for key, query_tf in tqdm(queries_tf.items()):
-        dic_to_be_sorted = to_query_to_all_document_score(query_tf, doc_tf)
+        dic_to_be_sorted = to_query_to_all_document_score(query_tf, doc_tf, word_vectors_document, word_to_id)
         sorted_doc_scores = sort_dic_by_value_tolist(dic_to_be_sorted)
         top_k_doc = sorted_doc_scores[:k]
         total_score[key] = top_k_doc
@@ -249,6 +266,12 @@ def for_evaluation(normalized_answers, normalized_document, top_scores, k):
     return [to_evaluate(normalized_answers[i], normalized_document, top_scores[i], k) for i in range(len(normalized_answers))]
 
 
+def convert_words_to_vectors(idf_document, ft):
+    word_vectors = {}
+    for key in idf_document:
+        word_vectors[key] = ft.get_word_vector(key)
+    return word_vectors
+
 # """MAIN METHOD"""
 def main():
 
@@ -259,32 +282,37 @@ def main():
     print("\n************************************ for documents ****************************************\n")
 
     df_document = to_cf(remove_duplicates)                         # to make df for the doc - dictionary of {term_id : how many documents a term has occured in}
-
     tf_document = to_make_tf(sort_segmented_list)                  # to make tf for the doc - dictionary of a dictionary{term_id: number of times term occurs}
-
     number_of_doc = len(sort_segmented_list)                       # total number of docs in the collection
     idf_document = to_make_idf(number_of_doc, df_document)         # to make idf - apply idf to the docs
+    word_vectors_document = convert_words_to_vectors(idf_document, ft)
+
+    word_to_id = {x: i for i, x in enumerate(word_vectors_document.keys())}
+    word_vectors_document = np.array([x for x in word_vectors_document.values()])
 
     print("\n************************************ for queries ****************************************\n")
     the_query = read_text_from_json('query_json/query1.json')                                        # we read the query from the json file
-
-    sort_segmented_list_query, remove_duplicates_query, _ = pre_process(the_query)         # we apply pre-processing techniques to the query to get the sorted segmented query list and the list after removing the duplicates
-
+    sort_segmented_list_query, remove_duplicates_query, _ = pre_process(the_query[:100])         # we apply pre-processing techniques to the query to get the sorted segmented query list and the list after removing the duplicates
     tf_query = to_make_tf(sort_segmented_list_query)              # to make tf for the query - dictionary (query_id) of a dictionary{term_id: number of times term has occured in a query}
+
+    # idf_query = to_make_idf(number_of_doc, to_cf(remove_duplicates_query))         # to make idf - apply idf to the docs
+    # word_vectors_query = convert_words_to_vectors(idf_query, ft)
 
     print("\n************************************ tf-idf & score ****************************************\n")
 
     tf_idf_query = for_calculate_tf_idf(tf_query, idf_document)                       # to calculate tf-idf
+    # TODO: Fix IDF LAter
+    top_scores = to_all_query_to_all_document_score(tf_idf_query, tf_document, 100, word_vectors_document, word_to_id)       # to calculate the score
 
-    top_scores = to_all_query_to_all_document_score(tf_idf_query, tf_document, 100)       # to calculate the score
 
     print("\n************************************ evaluation ****************************************")
     the_answer = read_text_from_json('answer_json/answer1.json')
-    the_normalized_answer = for_normalize(the_answer)
+    the_normalized_answer = for_normalize(the_answer[:100])
 
     for k in [1, 5, 20, 100]:
         evaluation_list = for_evaluation(the_normalized_answer, the_normalized_document, top_scores, k)
         score = np.mean(evaluation_list) * 100
         print(f"Recall@{k} {score}")
 
+ft = fasttext.load_model('/home/bethel/Downloads/cc.am.24.bin')
 main()
