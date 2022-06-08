@@ -264,7 +264,7 @@ def main():
     #
     # print("sort the dictionary")
     # # sorted_dict = sorted(removed_punc.items(), key=lambda item: item[1], reverse = True)
-    # # print(sorted_dict[:100])
+    # # print(sorted_dict)
     #
 
     print("\ndf - dictionary of {term_id: how many documents a term occured}")

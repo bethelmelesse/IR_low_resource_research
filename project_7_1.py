@@ -270,7 +270,7 @@ def main():
     print("\n************************************ for queries ****************************************\n")
     the_query = read_text_from_json('query_json/query1.json')                                        # we read the query from the json file
 
-    sort_segmented_list_query, remove_duplicates_query, _ = pre_process(the_query[:100])         # we apply pre-processing techniques to the query to get the sorted segmented query list and the list after removing the duplicates
+    sort_segmented_list_query, remove_duplicates_query, _ = pre_process(the_query)         # we apply pre-processing techniques to the query to get the sorted segmented query list and the list after removing the duplicates
 
     tf_query = to_make_tf(sort_segmented_list_query)              # to make tf for the query - dictionary (query_id) of a dictionary{term_id: number of times term has occured in a query}
 
@@ -283,7 +283,7 @@ def main():
 
     print("\n************************************ evaluation ****************************************")
     the_answer = read_text_from_json('answer_json/answer1.json')
-    the_normalized_answer = for_normalize(the_answer[:100])
+    the_normalized_answer = for_normalize(the_answer)
 
     for k in [1, 5, 20, 100]:
         evaluation_list = for_evaluation(the_normalized_answer, the_normalized_document, top_scores, k)

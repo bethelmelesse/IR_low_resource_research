@@ -6,6 +6,7 @@ from amseg.amharicNormalizer import AmharicNormalizer as normalizer
 from amseg.amharicSegmenter import AmharicSegmenter
 from tqdm import tqdm
 import fasttext
+import multiprocessing
 
 path = '/home/bethel/ir_proj/amfiles_json/AA/'  # path to the Amharic wiki dump files in json format
 dir_list = os.listdir(path)
@@ -228,17 +229,28 @@ def sort_dic_by_value_tolist(dic_to_be_sorted):
     return list(sorted(dic_to_be_sorted.items(), key=lambda item: item[1], reverse=True))
 
 
+
+def help_multi_cpu(args):
+    key, query_tf, doc_tf, k, word_vectors_document, word_to_id = args
+    dic_to_be_sorted = to_query_to_all_document_score(query_tf, doc_tf, word_vectors_document, word_to_id)
+    sorted_doc_scores = sort_dic_by_value_tolist(dic_to_be_sorted)
+    top_k_doc = sorted_doc_scores[:k]
+    return top_k_doc
+
+
 def to_all_query_to_all_document_score(queries_tf, doc_tf, k, word_vectors_document, word_to_id):          # rename
     total_score = {}
 
-    for key, query_tf in tqdm(queries_tf.items()):
-        dic_to_be_sorted = to_query_to_all_document_score(query_tf, doc_tf, word_vectors_document, word_to_id)
-        sorted_doc_scores = sort_dic_by_value_tolist(dic_to_be_sorted)
-        top_k_doc = sorted_doc_scores[:k]
-        total_score[key] = top_k_doc
+    with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+        args_list = []
+        for key, query_tf in queries_tf.items():
+            args_list.append((key, query_tf, doc_tf, k, word_vectors_document, word_to_id))
+
+        results = pool.map(help_multi_cpu, tqdm(args_list))
+        for i in range(len(results)):
+            total_score[args_list[i][0]] = results[i]
 
     return total_score
-
 
 def pre_process(list_doc_text):
 
@@ -292,7 +304,7 @@ def main():
 
     print("\n************************************ for queries ****************************************\n")
     the_query = read_text_from_json('query_json/query1.json')                                        # we read the query from the json file
-    sort_segmented_list_query, remove_duplicates_query, _ = pre_process(the_query[:100])         # we apply pre-processing techniques to the query to get the sorted segmented query list and the list after removing the duplicates
+    sort_segmented_list_query, remove_duplicates_query, _ = pre_process(the_query)         # we apply pre-processing techniques to the query to get the sorted segmented query list and the list after removing the duplicates
     tf_query = to_make_tf(sort_segmented_list_query)              # to make tf for the query - dictionary (query_id) of a dictionary{term_id: number of times term has occured in a query}
 
     # idf_query = to_make_idf(number_of_doc, to_cf(remove_duplicates_query))         # to make idf - apply idf to the docs
@@ -307,7 +319,7 @@ def main():
 
     print("\n************************************ evaluation ****************************************")
     the_answer = read_text_from_json('answer_json/answer1.json')
-    the_normalized_answer = for_normalize(the_answer[:100])
+    the_normalized_answer = for_normalize(the_answer)
 
     for k in [1, 5, 20, 100]:
         evaluation_list = for_evaluation(the_normalized_answer, the_normalized_document, top_scores, k)
