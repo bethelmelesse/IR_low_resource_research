@@ -8,7 +8,7 @@ from tqdm import tqdm
 import fasttext
 import multiprocessing
 
-path = '/home/bethel/ir_proj/amfiles_json/AA/'  # path to the Amharic wiki dump files in json format
+path = 'amfiles_json/AA/'  # path to the Amharic wiki dump files in json format
 dir_list = os.listdir(path)
 
 
@@ -327,5 +327,5 @@ def main():
         score = np.mean(evaluation_list) * 100
         print(f"Recall@{k} {score}")
 
-ft = fasttext.load_model('/home/bethel/Downloads/cc.am.24.bin')
+ft = fasttext.load_model('cc.am.24.bin')
 main()

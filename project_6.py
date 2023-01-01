@@ -6,7 +6,7 @@ from amseg.amharicNormalizer import AmharicNormalizer as normalizer
 from amseg.amharicSegmenter import AmharicSegmenter
 from tqdm import tqdm
 
-path = '/home/bethel/ir_proj/amfiles_json/AA/'  # path to the Amharic wiki dump files in json format
+path = 'amfiles_json/AA/'  # path to the Amharic wiki dump files in json format
 dir_list = os.listdir(path)
 
 
